@@ -74,51 +74,52 @@ def parseline(line):
 def encode_indexs(indexs,size):
     return np.array(indexs,dtype=int32)
 
-def getbatch(data,offset):
+def getbatch(offset):
     batch=[]
     for i in range(batchsize):
         index=shuffle_index[i+offset]
-        x=data[index][0]
-        y=data[index][1]
-        z=data[index][2]
-        example=[encode_indexs(x,volsize),encode_indexs(y,relsize),encode_indexs(z,relsize)]
-        batch.append(example)
+        # x=data[index][0]
+        # y=data[index][1]
+        # z=data[index][2]
+        # example=[encode_indexs(x,volsize),encode_indexs(y,relsize),encode_indexs(z,relsize)]
+        batch.append(index)
     return batch
 
-def get_traindata(filename):
-    f=open(filename,'r')
-    count=1
-    # total=[]
-    data=[]
-    x=[]
-    y=[]
-    z=[]
-    xs=[]
-    ys=[]
-    zs=[]
-    for line in f:
-        line=line.strip()
-        if line=='':
-           random.shuffle(data)
-           # total+=data[:negative_sample_size]
-           for i in range(negative_sample_size):
-            xs.append(data[i][0])
-           data=[]
-           count=1
-           continue
-        if count==1:
-           x=parseline(line)
-           count+=1
-           continue
-        elif count==2:
-           y=parseline(line)
-           count=0
-           continue
-        else:
-           z=parseline(line)
-           data.append([x,y,z])
-    f.close()
-    return total
+# def get_traindata(filename):
+    # f=open(filename,'r')
+    # count=1
+    # # total=[]
+    # data=[]
+    # x=[]
+    # y=[]
+    # z=[]
+    # xs=[]
+    # ys=[]
+    # zs=[]
+    # for line in f:
+    #     line=line.strip()
+    #     if line=='':
+    #        random.shuffle(data)
+    #        for i in range(min(negative_sample_size,len(data))):
+    #         xs.append(data[i][0])
+    #         ys.append(data[i][1])
+    #         zs.append(data[i][2])
+    #        data=[]
+    #        count=1
+    #        continue
+    #     if count==1:
+    #        x=parseline(line)
+    #        count+=1
+    #        continue
+    #     elif count==2:
+    #        y=parseline(line)
+    #        count=0
+    #        continue
+    #     else:
+    #        z=parseline(line)
+    #        data.append([x,y,z])
+    # f.close()
+    # return xs,ys,zs
 
 
 def get_testData(filename):
@@ -203,10 +204,17 @@ def test(testdata,f_log,epi):
       averageNewF1 = 2 * averageRecall * averagePrecision / (averagePrecision + averageRecall)
     print "F1 of average recall and average precision: " + str(averageNewF1),'epoch',epi
 
+numpy.random.seed(345)
+random.seed(345)
+# traindata=get_traindata('/share/project/zuyao/data/train_web_soft_0.8_code.txt')
+with open('traindata.pickle') as trainfile:
+  xs,ys,zs=pickle.load(trainfile)
+  trainsize=len(xs)
+  xs=theano.shared(xs,name='xs')
+  ys=theano.shared(ys,name='ys')
+  zs=theano.shared(zs,name='zs')
 
-traindata=get_traindata('/share/project/zuyao/data/train_web_soft_0.8_code.txt')
 testdata=get_testData('/share/project/zuyao/data/dev_web_soft_code_list.txt')
-trainsize=len(traindata)
 shuffle_index=range(trainsize)
 '''define module'''
 # therefore we use the logistic function
@@ -282,7 +290,7 @@ else:
 # X = T.matrix(dtype=dtype)
 # Y = T.matrix(dtype=dtype)
 # Z = T.matrix(dtype=dtype)
-
+index = T.iscalar('index')
 X = T.ivector('X')
 Y = T.ivector('Y')
 Z = T.ivector('Z')
@@ -369,9 +377,10 @@ for accugrad, param, gparam in zip(mparams, params, gparams):
 print "finish updates"
 
 #TODO: define training function and score function
-learn_model_fn = theano.function(inputs = [X, Y, Z, learning_rate],
+learn_model_fn = theano.function(inputs = [index, learning_rate],
                                  outputs = Cost,
-                                 updates = updates)
+                                 updates = updates,
+                                 givens = {X:xs[index],Y:ys[index],Z:zs[index]})
 q_encoder = theano.function(inputs = [X], outputs = X_h)
 c_encoder = theano.function(inputs = [Y], outputs = Y_emb)
 print "finish functions"
@@ -392,10 +401,9 @@ for epi in xrange(max_epoch):
     for offset in range(0,trainsize,batchsize):
         if offset+batchsize>trainsize:
             break
-        batch=getbatch(traindata,offset)[0]
-        train_cost=learn_model_fn(batch[0],batch[1],batch[2],lr)
+        index=getbatch(offset)[0]
+        train_cost=learn_model_fn(index,lr)
         err+=train_cost
-        # print "finish train data, ", offset,'/',trainsize, 'epoch',epi
         print '[learning] epoch %i >> %2.2f%%'%(epi,(offset+1)*100./trainsize),'completed in %.2f (sec) <<\r'%(time.time()-start_time),
         sys.stdout.flush()
     train_errs[epi] = err / trainsize

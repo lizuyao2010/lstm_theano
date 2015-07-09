@@ -198,7 +198,8 @@ def test(testdata,f_log,epi):
       averageNewF1 = 2 * averageRecall * averagePrecision / (averagePrecision + averageRecall)
     print "F1 of average recall and average precision: " + str(averageNewF1),'epoch',epi
 
-
+numpy.random.seed(345)
+random.seed(345)
 traindata=get_traindata('/share/project/zuyao/data/train_web_soft_0.8_code.txt')
 testdata=get_testData('/share/project/zuyao/data/dev_web_soft_code_list.txt')
 trainsize=len(traindata)
