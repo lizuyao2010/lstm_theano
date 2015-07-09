@@ -85,42 +85,6 @@ def getbatch(offset):
         batch.append(index)
     return batch
 
-# def get_traindata(filename):
-    # f=open(filename,'r')
-    # count=1
-    # # total=[]
-    # data=[]
-    # x=[]
-    # y=[]
-    # z=[]
-    # xs=[]
-    # ys=[]
-    # zs=[]
-    # for line in f:
-    #     line=line.strip()
-    #     if line=='':
-    #        random.shuffle(data)
-    #        for i in range(min(negative_sample_size,len(data))):
-    #         xs.append(data[i][0])
-    #         ys.append(data[i][1])
-    #         zs.append(data[i][2])
-    #        data=[]
-    #        count=1
-    #        continue
-    #     if count==1:
-    #        x=parseline(line)
-    #        count+=1
-    #        continue
-    #     elif count==2:
-    #        y=parseline(line)
-    #        count=0
-    #        continue
-    #     else:
-    #        z=parseline(line)
-    #        data.append([x,y,z])
-    # f.close()
-    # return xs,ys,zs
-
 
 def get_testData(filename):
   f=open(filename,'r')
@@ -298,7 +262,7 @@ Z = T.ivector('Z')
 
 [X_hvals_en, X_cvals_en], _ = \
 theano.scan(fn=encoder,\
-            sequences=dict(input=X,taps=[0]),\
+            sequences=dict(input=X[(X>0).nonzero()],taps=[0]),\
             outputs_info=[dict(initial=h0en,taps=[-1]), dict(initial=c0en,taps=[-1])],\
             non_sequences=[Een, Wxien, Whien, bien, Wxfen, Whfen, bfen,\
                            Wxcen, Whcen, bcen, Wxoen, Whoen, boen])

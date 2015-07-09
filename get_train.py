@@ -23,47 +23,6 @@ def encode_indexs(indexs):
     return np.array(indexs,dtype=int32)
 
 
-# def get_traindata(filename):
-#     f=open(filename,'r')
-#     count=1
-#     # total=[]
-#     xs=[]
-#     ys=[]
-#     zs=[]
-#     data=[]
-#     x=[]
-#     y=[]
-#     z=[]
-#     for line in f:
-#         line=line.strip()
-#         if line=='':
-#            random.shuffle(data)
-#            # total+=data[:negative_sample_size]
-#            for i in range(min(negative_sample_size,len(data))):
-#             xs.append(data[i][0])
-#             ys.append(data[i][1])
-#             zs.append(data[i][2])
-#            data=[]
-#            count=1
-#            continue
-#         if count==1:
-#            x=parseline(line)
-#            x=encode_indexs(x)
-#            count+=1
-#            continue
-#         elif count==2:
-#            y=parseline(line)
-#            y=encode_indexs(y)
-#            count=0
-#            continue
-#         else:
-#            z=parseline(line)
-#            z=encode_indexs(z)
-#            data.append([x,y,z])
-#     f.close()
-#     # return total
-#     return xs,ys,zs
-
 def get_traindata(filename):
     f=open(filename,'r')
     count=1
