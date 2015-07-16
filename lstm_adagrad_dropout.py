@@ -16,6 +16,8 @@ import sys
 import json
 import pickle
 from collections import OrderedDict
+from theano.sandbox.rng_mrg import MRG_RandomStreams as RandomStreams
+srng = RandomStreams(seed=np.random.randint(10e6))
 
 batchsize=1
 negative_sample_size=80
@@ -157,6 +159,7 @@ def test(testdata,f_log,epi):
     count=0
     start_time=time.time()
     testdataSize=len(testdata)
+    train.set_value(0.)
     for item in testdata:
       scoretable=[]
       qcode=q_encoder(encode_indexs(item['qcode'],volsize))
@@ -218,6 +221,18 @@ def sample_weights(nrow, ncol):
     np.random.uniform(low=-bound, high=bound, size=(nrow, ncol))
     return np.cast[dtype](values)
 
+def numpy_floatX(data):
+    return numpy.asarray(data, dtype=dtype)
+
+def drop_out(x,p):
+  if p>0:
+    retain_prob=1-p
+    if train.get_value():
+      x *= srng.binomial(x.shape, p=retain_prob, dtype=dtype)
+    else:
+      x *= retain_prob
+  return x
+
 #TODO: define the encoder
 def encoder(wordt, htm1, ctm1, 
             Een, Wxien, Whien, bien, Wxfen, Whfen, bfen, 
@@ -253,9 +268,6 @@ if pretrained_model:
   Whoen = theano.shared(model['Whoen'],name='Whoen')
   boen = theano.shared(model['boen'], name='boen')
 
-  # c0en = theano.shared(model['c0en'])
-  # h0en = theano.shared(model['h0en'])
-  # h0en = T.tanh(c0en)
 
 else:
   Een = theano.shared(sample_weights(volsize,nen),name='Een')
@@ -274,18 +286,11 @@ else:
   boen = theano.shared(outputbias*np.ones((nen,),dtype=dtype), name='boen')
 
 
-  # h0en = T.tanh(c0en)
-
-
-
-# X = T.matrix(dtype=dtype)
-# Y = T.matrix(dtype=dtype)
-# Z = T.matrix(dtype=dtype)
 
 X = T.ivector('X')
 Y = T.ivector('Y')
 Z = T.ivector('Z')
-
+train = theano.shared(numpy_floatX(0.))
 
 [X_hvals_en, X_cvals_en], _ = \
 theano.scan(fn=encoder,\
@@ -304,6 +309,7 @@ T.sum(Wxfen**2) + T.sum(Whfen**2) + T.sum(bfen**2) + \
 T.sum(Wxcen**2) + T.sum(Whcen**2) + T.sum(bcen**2) + \
 T.sum(Wxoen**2) + T.sum(Whoen**2) + T.sum(boen**2)
 gam = theano.shared(gammavalue,name='gam')
+X_hvals_en=drop_out(x=X_hvals_en,p=0.5)
 X_h=T.sum(X_hvals_en,axis=0)
 # X_h=X_hvals_en[-1]
 XY_score=T.dot(X_h,Y_emb)
@@ -388,6 +394,7 @@ for epi in xrange(max_epoch):
     random.shuffle(shuffle_index)
     print 'epoch',epi
     err = 0.0
+    train.set_value(1.)
     for offset in range(0,trainsize,batchsize):
         if offset+batchsize>trainsize:
             break
@@ -422,8 +429,6 @@ for epi in xrange(max_epoch):
     model['Whoen'] = Whoen.get_value()
     model['boen'] = boen.get_value()
 
-    # model['c0en'] = c0en.get_value()
-    # model['h0en'] = h0en.get_value()
     fname = 'model_lstm'+str(epi)+'.pickle'
     f = open(fname,'w')
     pickle.dump(model,f)

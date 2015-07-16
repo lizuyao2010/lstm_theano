@@ -22,7 +22,7 @@ negative_sample_size=80
 dtype=theano.config.floatX
 volsize=3114+1
 relsize=3358+1
-margin=1
+margin=4
 threshold=0
 gammavalue = np.float32(0.0)
 nmodel = 150
@@ -232,120 +232,104 @@ def encoder(wordt, htm1, ctm1,
 #    yt = T.concatenate([addzero,tempyt],axis=0)
     return ht, ct
 
+def init_parameters():
+  Een = theano.shared(sample_weights(volsize,nen))
+  Wxien = theano.shared(sample_weights(nen,nen))
+  Whien = theano.shared(sample_weights(nen,nen))
+  bien = theano.shared(inputbias*np.ones((nen,),dtype=dtype))
+  Wxfen = theano.shared(sample_weights(nen,nen))
+  Whfen = theano.shared(sample_weights(nen,nen))
+  bfen = theano.shared(forgetbias*np.ones((nen,),dtype=dtype))
+  Wxcen = theano.shared(sample_weights(nen,nen))
+  Whcen = theano.shared(sample_weights(nen,nen))
+  bcen = theano.shared(np.zeros((nen,),dtype=dtype))
+  Wxoen = theano.shared(sample_weights(nen,nen))
+  Whoen = theano.shared(sample_weights(nen,nen))
+  boen = theano.shared(outputbias*np.ones((nen,),dtype=dtype))
+
+  return [Een, Wxien, Whien, bien, Wxfen, Whfen, bfen,\
+          Wxcen, Whcen, bcen, Wxoen, Whoen, boen]
+def init_m_parameters():
+  mEen = theano.shared(np.zeros((volsize,nen),dtype=dtype))
+  mWxien = theano.shared(np.zeros((nen,nen),dtype=dtype))
+  mWhien = theano.shared(np.zeros((nen,nen),dtype=dtype))
+  mbien = theano.shared(np.zeros((nen,),dtype=dtype))
+  mWxfen = theano.shared(np.zeros((nen,nen),dtype=dtype))
+  mWhfen = theano.shared(np.zeros((nen,nen),dtype=dtype))
+  mbfen = theano.shared(np.zeros((nen,),dtype=dtype))
+  mWxcen = theano.shared(np.zeros((nen,nen),dtype=dtype))
+  mWhcen = theano.shared(np.zeros((nen,nen),dtype=dtype))
+  mbcen = theano.shared(np.zeros((nen,),dtype=dtype))
+  mWxoen = theano.shared(np.zeros((nen,nen),dtype=dtype))
+  mWhoen = theano.shared(np.zeros((nen,nen),dtype=dtype))
+  mboen = theano.shared(np.zeros((nen,),dtype=dtype))
+
+  return [mEen, mWxien, mWhien, mbien, mWxfen, mWhfen, mbfen,
+           mWxcen, mWhcen, mbcen, mWxoen, mWhoen, mboen]
+
 c0en = theano.shared(np.zeros(nen, dtype=dtype))
 h0en = theano.shared(np.zeros(nen, dtype=dtype))
+
 if pretrained_model:
   f = open(pretrained_model,'r')
   model=pickle.load(f)
   f.close()
-  Een = theano.shared(model['Een'],name='Een')
-  Ren = theano.shared(model['Ren'],name='Ren')
-  Wxien = theano.shared(model['Wxien'], name='Wxien')
-  Whien = theano.shared(model['Whien'], name='Whien')
-  bien = theano.shared(model['bien'], name='bien')
-  Wxfen = theano.shared(model['Wxfen'], name='Wxfen')
-  Whfen = theano.shared(model['Whfen'], name='Whfen')
-  bfen = theano.shared(model['bfen'], name='bfen')
-  Wxcen = theano.shared(model['Wxcen'], name='Wxcen')
-  Whcen = theano.shared(model['Whcen'], name='Whcen')
-  bcen = theano.shared(model['bcen'],name='bcen')
-  Wxoen = theano.shared(model['Wxoen'],name='Wxoen')
-  Whoen = theano.shared(model['Whoen'],name='Whoen')
-  boen = theano.shared(model['boen'], name='boen')
-
-  # c0en = theano.shared(model['c0en'])
-  # h0en = theano.shared(model['h0en'])
-  # h0en = T.tanh(c0en)
+  params_f=[theano.shared(param) for param in model['f']]
+  params_r=[theano.shared(param) for param in model['r']]
+  Ren=theano.shared(model['Ren'])
 
 else:
-  Een = theano.shared(sample_weights(volsize,nen),name='Een')
-  Ren = theano.shared(sample_weights(relsize,nen),name='Ren')
-  Wxien = theano.shared(sample_weights(nen,nen), name='Wxien')
-  Whien = theano.shared(sample_weights(nen,nen), name='Whien')
-  bien = theano.shared(inputbias*np.ones((nen,),dtype=dtype), name='bien')
-  Wxfen = theano.shared(sample_weights(nen,nen), name='Wxfen')
-  Whfen = theano.shared(sample_weights(nen,nen), name='Whfen')
-  bfen = theano.shared(forgetbias*np.ones((nen,),dtype=dtype), name='bfen')
-  Wxcen = theano.shared(sample_weights(nen,nen), name='Wxcen')
-  Whcen = theano.shared(sample_weights(nen,nen), name='Whcen')
-  bcen = theano.shared(np.zeros((nen,),dtype=dtype),name='bcen')
-  Wxoen = theano.shared(sample_weights(nen,nen),name='Wxoen')
-  Whoen = theano.shared(sample_weights(nen,nen),name='Whoen')
-  boen = theano.shared(outputbias*np.ones((nen,),dtype=dtype), name='boen')
+  params_f=init_parameters()
+  params_r=init_parameters()  
+  Ren = theano.shared(sample_weights(relsize,nen*2))
 
-
-  # h0en = T.tanh(c0en)
-
-
-
-# X = T.matrix(dtype=dtype)
-# Y = T.matrix(dtype=dtype)
-# Z = T.matrix(dtype=dtype)
+params = params_f+params_r+[Ren]
 
 X = T.ivector('X')
 Y = T.ivector('Y')
 Z = T.ivector('Z')
 
 
-[X_hvals_en, X_cvals_en], _ = \
+[X_hvals_en_f, X_cvals_en_f], _ = \
 theano.scan(fn=encoder,\
             sequences=dict(input=X,taps=[0]),\
             outputs_info=[dict(initial=h0en,taps=[-1]), dict(initial=c0en,taps=[-1])],\
-            non_sequences=[Een, Wxien, Whien, bien, Wxfen, Whfen, bfen,\
-                           Wxcen, Whcen, bcen, Wxoen, Whoen, boen])
-# Y_emb=T.sum(theano.dot(Y,Ren),axis=0)
-# Z_emb=T.sum(theano.dot(Z,Ren),axis=0)
+            non_sequences=params_f)
+
+[X_hvals_en_r, X_cvals_en_r], _ = \
+theano.scan(fn=encoder,\
+            sequences=dict(input=X,taps=[0]),\
+            outputs_info=[dict(initial=h0en,taps=[-1]), dict(initial=c0en,taps=[-1])],\
+            non_sequences=params_r,\
+            go_backwards=True)
+
 Y_emb=T.sum(Ren[Y],axis=0)
 Z_emb=T.sum(Ren[Z],axis=0)
 print "finish encoder"
 
-l2 = T.sum(Een**2) + T.sum(Ren**2) + T.sum(Wxien**2) + T.sum(Whien**2) + T.sum(bien**2) + \
-T.sum(Wxfen**2) + T.sum(Whfen**2) + T.sum(bfen**2) + \
-T.sum(Wxcen**2) + T.sum(Whcen**2) + T.sum(bcen**2) + \
-T.sum(Wxoen**2) + T.sum(Whoen**2) + T.sum(boen**2)
+
+l2=sum([T.sum(param**2) for param in params])
 gam = theano.shared(gammavalue,name='gam')
-X_h=T.sum(X_hvals_en,axis=0)
+X_h_f=T.sum(X_hvals_en_f,axis=0)
+X_h_r=T.sum(X_hvals_en_r,axis=0)
+X_h = T.concatenate([X_h_f,X_h_r])
 # X_h=X_hvals_en[-1]
 XY_score=T.dot(X_h,Y_emb)
 XZ_score=T.dot(X_h,Z_emb)
 Cost = T.maximum(0,margin-(XY_score-XZ_score)) + gam * l2
 
 print "finish cost"
-#TODO: Adam
 
-# adagrad - m
-mEen = theano.shared(np.zeros((volsize,nen),dtype=dtype),name='mEen')
-mRen = theano.shared(np.zeros((relsize,nen),dtype=dtype),name='mRen')
-mWxien = theano.shared(np.zeros((nen,nen),dtype=dtype), name='mWxien')
-mWhien = theano.shared(np.zeros((nen,nen),dtype=dtype), name='mWhien')
-mbien = theano.shared(np.zeros((nen,),dtype=dtype), name='mbien')
-mWxfen = theano.shared(np.zeros((nen,nen),dtype=dtype), name='mWxfen')
-mWhfen = theano.shared(np.zeros((nen,nen),dtype=dtype), name='mWhfen')
-mbfen = theano.shared(np.zeros((nen,),dtype=dtype), name='mbfen')
-mWxcen = theano.shared(np.zeros((nen,nen),dtype=dtype), name='mWxcen')
-mWhcen = theano.shared(np.zeros((nen,nen),dtype=dtype), name='mWhcen')
-mbcen = theano.shared(np.zeros((nen,),dtype=dtype),name='mbcen')
-mWxoen = theano.shared(np.zeros((nen,nen),dtype=dtype),name='mWxoen')
-mWhoen = theano.shared(np.zeros((nen,nen),dtype=dtype),name='mWhoen')
-mboen = theano.shared(np.zeros((nen,),dtype=dtype), name='mboen')
 
-mparams = [mEen, mRen, mWxien, mWhien, mbien, mWxfen, mWhfen, mbfen,
-           mWxcen, mWhcen, mbcen, mWxoen, mWhoen, mboen]
-
+aparams_f = init_m_parameters()
+aparams_r = init_m_parameters()
+aRen=theano.shared(np.zeros((relsize,nen*2),dtype=dtype))
+aparams=aparams_f+aparams_r+[aRen]
 
 #TODO: take grads
-params = [Een, Ren, Wxien, Whien, bien, Wxfen, Whfen, bfen,\
-          Wxcen, Whcen, bcen, Wxoen, Whoen, boen]
 
-gEen, gRen, gWxien, gWhien, gbien, gWxfen, gWhfen, gbfen, \
-gWxcen, gWhcen, gbcen, gWxoen, gWhoen, gboen \
-= T.grad(Cost, params)
-
-gparams = [gEen, gRen, gWxien, gWhien, gbien, gWxfen, gWhfen, gbfen,
-           gWxcen, gWhcen, gbcen, gWxoen, gWhoen, gboen]
-
+gparams = T.grad(Cost,params)
 print "finish grads"
-
 
 eps=1.E-6
 
@@ -358,7 +342,7 @@ eps=1.E-6
 # batch_y = T.ivector('batch_y')
 learning_rate = T.fscalar('lr')  # learning rate to use
 updates = OrderedDict()
-for accugrad, param, gparam in zip(mparams, params, gparams):
+for accugrad, param, gparam in zip(aparams, params, gparams):
     # c.f. Algorithm 1 in the Adadelta paper (Zeiler 2012)
     agrad = accugrad + gparam * gparam
     dx = - (learning_rate / T.sqrt(agrad + eps)) * gparam
@@ -406,24 +390,10 @@ for epi in xrange(max_epoch):
     print "finish testing, save model"
     # save the model first
     model = {}
-    # for encoder
-    model['Een'] = Een.get_value()
-    model['Ren'] = Ren.get_value()
-    model['Wxien'] = Wxien.get_value()
-    model['Whien'] = Whien.get_value()
-    model['bien'] = bien.get_value()
-    model['Wxfen'] = Wxfen.get_value()
-    model['Whfen'] = Whfen.get_value()
-    model['bfen'] = bfen.get_value()
-    model['Wxcen'] = Wxcen.get_value()
-    model['Whcen'] = Whcen.get_value()
-    model['bcen'] = bcen.get_value()
-    model['Wxoen'] = Wxoen.get_value()
-    model['Whoen'] = Whoen.get_value()
-    model['boen'] = boen.get_value()
-
-    # model['c0en'] = c0en.get_value()
-    # model['h0en'] = h0en.get_value()
+    # save encoder
+    model['f']=[param.get_value() for param in params_f]
+    model['r']=[param.get_value() for param in params_r]
+    model['Ren']=Ren.get_value()
     fname = 'model_lstm'+str(epi)+'.pickle'
     f = open(fname,'w')
     pickle.dump(model,f)
