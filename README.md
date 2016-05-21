@@ -1,3 +1,5 @@
+#run code
+python lstm_adagrad.py
 # lstm theano code for question answering with freebase
 ##encode question with lstm encoder 
 hidden state size 150, embedding size 150  
